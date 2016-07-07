@@ -6,106 +6,98 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.PreparedStatementCreator;
+import org.springframework.jdbc.core.ResultSetExtractor;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
 import com.gcit.lms.domain.Author;
 import com.gcit.lms.domain.Book;
+import com.gcit.lms.domain.Borrower;
 import com.gcit.lms.domain.Branch;
 import com.gcit.lms.domain.Genre;
 import com.gcit.lms.domain.Publisher;
 
-public class BookDAO extends BaseDAO {
-	public BookDAO(Connection conn) {
-		super(conn);
+public class BookDAO extends BaseDAO implements ResultSetExtractor<List<Book>> {
+
+	@Autowired
+	PublisherDAO pDao;
+
+//	@Autowired
+//	AuthorDAO aDao;
+//
+//	@Autowired
+//	GenreDAO gDao;
+
+	public List<Book> readAll() {
+		return template.query("select * from tbl_book", this);
 	}
 
-	public List<Book> readAll() throws ClassNotFoundException, SQLException{
-		return read("select * from tbl_book", null);
+	public Book readOne(Integer bookId) {
+		return (Book) template.query("select * from tbl_book where bookId = ?", new Object[] { bookId}, this).get(0);
 	}
 
-	public Book readOne(Integer bookId) throws ClassNotFoundException, SQLException{
-		return (Book) read("select * from tbl_book where bookId = ?", new Object[] { bookId}).get(0);
+	public List<Book> getBooksByPublisher(Publisher p) {
+		return template.query("select * from tbl_book where pubId = ?", new Object[]{p.getPublisherId()}, this);
+	}
+	
+	public Integer insertBook(Book book) {
+		KeyHolder keyHolder = new GeneratedKeyHolder();
+
+		template.update(new PreparedStatementCreator() {
+
+			@Override
+			public PreparedStatement createPreparedStatement(Connection con) throws SQLException {
+				PreparedStatement statement = null;
+				if(book.getPublisher() != null) {
+					statement = con.prepareStatement("insert into tbl_book (title, pubId) values (?,?)", new String[] {"id"} );
+					statement.setInt(2, book.getPublisher().getPublisherId());
+				}
+				else {
+					statement = con.prepareStatement("insert into tbl_book (title) values (?)", new String[] {"id"} );
+				}
+				statement.setString(1, book.getTitle());
+
+				return statement;
+			}
+		}, keyHolder);
+
+		return keyHolder.getKey().intValue();
 	}
 
-	public Integer insertBook(Book book) throws ClassNotFoundException, SQLException{
-		//		save("insert into tbl_book (authorName) values (?)", new Object[] {book.getTitle()});
-		//		if (book.getPublisher() != null) {
-		return saveWithID("insert into tbl_book (title, pubId) values (?,?)", new Object[] {book.getTitle(), book.getPublisher().getPublisherId()});
-		//		}
-
-		//		return saveWithID("insert into tbl_book (title) values (?)", new Object[] {book.getTitle()});
-
-	}
-
-	public void updateBook(Book book) throws ClassNotFoundException, SQLException{
-		save("update tbl_book set title = ?, pubId = ? where bookId = ? ", new Object[]{book.getTitle(), book.getPublisher().getPublisherId(), book.getBookId()} );
+	public void updateBook(Book book) {
+		template.update("update tbl_book set title = ?, pubId = ? where bookId = ? ", new Object[]{book.getTitle(), book.getPublisher().getPublisherId(), book.getBookId()} );
 	}
 
 	@Override
 	public List<Book> extractData(ResultSet rs) throws SQLException {
 		List<Book> books = new ArrayList<Book>();
-		PublisherDAO pdao = new PublisherDAO(connection);
-		AuthorDAO adao = new AuthorDAO(connection);
-		GenreDAO gDao = new GenreDAO(connection);
 		while(rs.next()){
 			Book b = new Book();
 			b.setBookId(rs.getInt("bookId"));
 			b.setTitle(rs.getString("title"));
-			try {
-				List<Publisher> pubs = pdao.readFirstLevel("select * from tbl_publisher where publisherId = ?", new Object[]{rs.getInt("pubId")});
-				if (pubs != null && !pubs.isEmpty()) {
-					b.setPublisher(pubs.get(0));
-				}
 
-			} catch (ClassNotFoundException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			try {
-				b.setAuthors(adao.readFirstLevel("select * from tbl_author where authorId IN (select authorId from tbl_book_authors where bookId = ?)", new Object[]{b.getBookId()}));
-			} catch (ClassNotFoundException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+			List<Publisher> publishers =  template.query("select * from tbl_publisher where publisherId = ?", pDao, new Object[]{ rs.getInt("pubId")});
+
+			if(!publishers.isEmpty()) {
+				b.setPublisher(publishers.get(0));
 			}
 
-			try {
-				List<Genre> genres = gDao.readFirstLevel("select * from tbl_genre where genre_id IN (select genre_id from tbl_book_genres where bookId = ?)", new Object[] {b.getBookId()});
-				b.setGenres(genres);
-			} catch (Exception e) {
-				// TODO: handle exception
-			}
 			books.add(b);
 		}
 		return books;
 	}
 
-	@Override
-	public List<Book> extractDataFirstLevel(ResultSet rs) throws SQLException {
-		List<Book> books = new ArrayList<Book>();
-		while(rs.next()){
-			Book b = new Book();
-			b.setBookId(rs.getInt("bookId"));
-			b.setTitle(rs.getString("title"));
-			Publisher publisher = new Publisher();
-			if (rs.getObject("pubId") != null) {
-				publisher.setPublisherId(Integer.parseInt(rs.getString("pubId")));
-			}
-
-			b.setPublisher(publisher);
-			books.add(b);
-		}
-		return books;
-	}
-
-	//	public List<Book> viewBooksCopiesPerBranch() {
-	//		// TODO Auto-generated method stub
-	//		return null;
-	//	}
-
-	public List<Book> viewBooksCopiesPerBranch(Branch branch) throws ClassNotFoundException, SQLException {
+	public List<Book> viewBooksCopiesPerBranch(Branch branch) {
 		List<Book> books = readAll();
-		Integer count;
+		Integer count = null;
 		for(Book b : books) {
-			count = readForCopiesPerBranch("select noOfCopies as count from tbl_book_copies where branchId = ? and bookId = ?", new Object[] {branch.getId(), b.getBookId()});
+			try {
+				count = template.queryForObject("select noOfCopies as count from tbl_book_copies where branchId = ? and bookId = ?", Integer.class, new Object[] {branch.getId(), b.getBookId()});
+			} catch (Exception e) {
+				count  = 0;
+			}
+
 
 			b.setCopyPerBranch(count);
 		}
@@ -113,25 +105,35 @@ public class BookDAO extends BaseDAO {
 		return books;
 	}
 
-
-	public int readForCopiesPerBranch(String query, Object[] vals) throws SQLException, ClassNotFoundException{
-		PreparedStatement pstmt = connection.prepareStatement(query);
-		if(vals !=null){
-			int count = 1;
-			for(Object o: vals){
-				pstmt.setObject(count, o);
-				count ++;
-			}
-		}
-		ResultSet rs = pstmt.executeQuery();
-		if (rs.next()) {
-			return rs.getInt("count");
-		}
-
-		return 0;
-	}
-
 	public void deleteBook(Book book) throws ClassNotFoundException, SQLException {
-		save("delete from tbl_book where bookId = ?", new Object[] {book.getBookId()});
+		template.update("delete from tbl_book where bookId = ?", new Object[] {book.getBookId()});
 	}
+
+	//moved from bookloanDAO. Can't remember what it does. Haha
+	public List<Book> getLoanedBooks() throws ClassNotFoundException, SQLException {
+		return template.query("select * from tbl_book where bookId in (select bookId from tbl_book_loans where dateIn IS NULL)", this);
+	}
+
+	public List<Book> getBooksByAuthor(Author a) {
+		return template.query("select * from tbl_book where bookId IN(select bookId from tbl_book_authors where authorId = ?)", new Object[]{ a.getAuthorId() }, this);
+
+	}
+
+	public List<Book> getBooksByBorrower(Borrower b) {
+		return template.query("select * from tbl_book where bookId IN (select bookId from tbl_book_loans where cardNo = ? and dateIn IS NULL)", new Object[]{ b.getCardNumber() }, this);
+	}
+
+	public List<Book> getBooksByBranch(Branch b) {
+		return template.query("select * from tbl_book where bookId IN (select bookId from tbl_book_copies where branchId = ? and noOfCopies > 0)", new Object[]{ b.getId() }, this);
+	}
+
+	public List<Book> getBooksByGenre(Genre g) {
+		return template.query("select * from tbl_book where bookId IN (select bookId from tbl_book_genres where genre_id = ?)", new Object[] {g.getGenre_id()}, this);
+	}
+	
+	
+
+
+
+
 }

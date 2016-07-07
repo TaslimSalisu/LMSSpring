@@ -1,101 +1,94 @@
 package com.gcit.lms.service;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
-
+import org.springframework.beans.factory.annotation.Autowired;
+import com.gcit.lms.dao.AuthorDAO;
+import com.gcit.lms.dao.BookAuthorsDAO;
 import com.gcit.lms.dao.BookCopiesDAO;
 import com.gcit.lms.dao.BookDAO;
+import com.gcit.lms.dao.BookGenreDAO;
+import com.gcit.lms.dao.BookLoanDAO;
+import com.gcit.lms.dao.BorrowerDAO;
 import com.gcit.lms.dao.BranchDAO;
+import com.gcit.lms.dao.GenreDAO;
+import com.gcit.lms.dao.PublisherDAO;
 import com.gcit.lms.domain.Book;
 import com.gcit.lms.domain.BookCopies;
 import com.gcit.lms.domain.Branch;
 
 public class LibrarianService {
 
-	ConnectionUtil util = new ConnectionUtil();
+	@Autowired
+	AuthorDAO aDao;
+
+	@Autowired
+	BranchDAO bhDao;
+
+	@Autowired
+	BorrowerDAO brDao;
+
+	@Autowired
+	BookLoanDAO blDao;
+
+	@Autowired
+	BookDAO bDao;
+
+	@Autowired
+	PublisherDAO pDao;
+
+	@Autowired
+	GenreDAO gDao;
+
+	@Autowired
+	BookAuthorsDAO baDao;
+
+	@Autowired
+	BookGenreDAO bgDao;
+
+	@Autowired
+	BookCopiesDAO bcDao;
+
 
 	public Branch getBranch(Branch branch) throws ClassNotFoundException, SQLException {
-		Connection conn = util.getConnection();
-		try {
-			BranchDAO bDao = new BranchDAO(conn);
-			return bDao.getBranch(branch);
-
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-
-		finally {
-			conn.close();
-		}
-		return null; 
-
-
+		return bhDao.getBranch(branch);
 	}
-	
+
 	public List<Book> viewBooksCopiesPerBranch(Branch branch) throws ClassNotFoundException, SQLException {
-		Connection conn = util.getConnection();
-		BookDAO bDao = new BookDAO(conn);
-		try {
-			return bDao.viewBooksCopiesPerBranch(branch);
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		finally {
-			conn.close();
-		}
-		
-		return null;
+		return bDao.viewBooksCopiesPerBranch(branch);
+	}
+
+	public List<Book> getBooksByBranch(Branch b) {
+		return bDao.getBooksByBranch(b);
 	}
 
 	public void updateBranch(Branch branch) throws ClassNotFoundException, SQLException {
-		Connection conn = util.getConnection();
-		BranchDAO bDao = new BranchDAO(conn);
-		try {
-			bDao.updateBranch(branch);
-			conn.commit(); 
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		finally {
-			conn.close();
-		}
-		
+		bhDao.updateBranch(branch);
 	}
+
+	public List<Branch> viewBranches() throws ClassNotFoundException, SQLException {
+		return bhDao.readAll();
+	}
+
+
 
 	public void updateBookCopies(BookCopies bc) throws ClassNotFoundException, SQLException {
-		Connection conn = util.getConnection();
-		BookCopiesDAO bcDao = new BookCopiesDAO(conn);
-		BookDAO bDao = new BookDAO(conn);
-		Integer count = bDao.readForCopiesPerBranch("select noOfCopies as count from tbl_book_copies where branchId = ? and bookId = ?", new Object[] {bc.getBranchId(), bc.getBookId()});
-		
-		try {
-			if (count > 0 ) {
-				bc.setNoOfCopies(bc.getNoOfCopies() + count);
-				bcDao.updateBookCopy(bc);
-				conn.commit();
-				
-			}
-			else {
-				bcDao.insertBookCopy(bc);
-				conn.commit();
-			}
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		finally {
-			conn.close();
-		}
-		
-		
-	}
 
-	
-	
-	
+				Integer count = bcDao.count(bc.getBranchId(), bc.getBookId());
+		
+				if (count > 0 ) {
+					bc.setNoOfCopies(bc.getNoOfCopies() + count);
+					bcDao.updateBookCopy(bc);
+				}
+				else {
+					bcDao.insertBookCopy(bc);
+				}
+	} 
+
 
 }
+
+
+
+
+

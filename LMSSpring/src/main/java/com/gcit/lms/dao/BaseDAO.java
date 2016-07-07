@@ -1,17 +1,16 @@
 package com.gcit.lms.dao;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.List;
-
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 public abstract class BaseDAO {
 	private int pageNo = -1;
-
-	private int pageSize = 10;
+	private int pageSize = 3;
+	
+	
+	@Autowired
+	JdbcTemplate template;
+	
 	public int getPageNo() {
 		return pageNo;
 	}
@@ -37,113 +36,6 @@ public abstract class BaseDAO {
 		this.pageSize = pageSize;
 	}
 
-	public Connection connection;
-
-	public BaseDAO(Connection conn){
-		this.connection = conn;
-	}
-
-	public void save(String query, Object[] vals) throws ClassNotFoundException, SQLException{
-
-		PreparedStatement pstmt = connection.prepareStatement(query);
-
-		if(vals != null){
-			int count = 1;
-			for(Object o: vals){
-				pstmt.setObject(count, o);
-				count++;
-			}
-		}
-		pstmt.executeUpdate();
-
-	}
-
-	public Integer readCount(String query, Object[] vals) throws SQLException{
-		PreparedStatement pstmt = connection.prepareStatement(query);
-		if(vals !=null){
-			int count = 1;
-			for(Object o: vals){
-				pstmt.setObject(count, o);
-				count ++;
-			}
-		}
-		ResultSet rs = pstmt.executeQuery();
-		while(rs.next()){
-			return rs.getInt("count");
-		}
-		return null;
-	}
-
-	public Integer saveWithID(String query, Object[] vals) throws ClassNotFoundException, SQLException{
-
-		PreparedStatement pstmt = connection.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);
-
-		if(vals !=null){
-			int count = 1;
-			for(Object o: vals){
-				pstmt.setObject(count, o);
-				count ++;
-			}
-		}
-		pstmt.executeUpdate();
-		ResultSet rs = pstmt.getGeneratedKeys();
-		if(rs!=null && rs.next()){
-			return rs.getInt(1);
-		}else{
-			return -1;
-		}
-	}
-
-
-	public <T> List<T> read(String query, Object[] vals) throws SQLException, ClassNotFoundException{
-		int pageNo = getPageNo();
-		if(pageNo > 0){
-			int index = (pageNo-1)*10;
-			query += " LIMIT "+index+" , "+getPageSize();
-		}
-		PreparedStatement pstmt = connection.prepareStatement(query);
-		if(vals !=null){
-			int count = 1;
-			for(Object o: vals){
-				pstmt.setObject(count, o);
-				count ++;
-			}
-		}
-		ResultSet rs = pstmt.executeQuery();
-
-		return (List<T>) extractData(rs);
-	}
-	
-	public <T> List<T> readAll(String query, Object[] vals) throws SQLException, ClassNotFoundException{
-		
-		PreparedStatement pstmt = connection.prepareStatement(query);
-		if(vals !=null){
-			int count = 1;
-			for(Object o: vals){
-				pstmt.setObject(count, o);
-				count ++;
-			}
-		}
-		ResultSet rs = pstmt.executeQuery();
-
-		return (List<T>) extractData(rs);
-	}
-
-	public abstract List<?> extractData(ResultSet rs) throws SQLException;
-
-	public <T> List<T> readFirstLevel(String query, Object[] vals) throws SQLException, ClassNotFoundException{
-		PreparedStatement pstmt = connection.prepareStatement(query);
-		if(vals !=null){
-			int count = 1;
-			for(Object o: vals){
-				pstmt.setObject(count, o);
-				count ++;
-			}
-		}
-		ResultSet rs = pstmt.executeQuery();
-
-		return (List<T>) extractDataFirstLevel(rs);
-	}
-
-	public abstract List<?> extractDataFirstLevel(ResultSet rs) throws SQLException;
 }
+
+

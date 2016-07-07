@@ -4,6 +4,10 @@ import java.io.Serializable;
 import java.util.Date;
 
 public class BookLoan implements Serializable{
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -1297339806406767580L;
 	private Integer bookId;
 	private Integer branchId;
 	private Integer cardNo;

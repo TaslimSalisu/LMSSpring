@@ -1,7 +1,6 @@
 package com.gcit.lms.domain;
 
 import java.util.List;
-import java.util.Map;
 
 public class Book {
 	private Integer bookId;

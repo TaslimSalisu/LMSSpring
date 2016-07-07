@@ -5,6 +5,10 @@ import java.util.List;
 import java.util.Map;
 
 public class Branch implements Serializable{
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -2758066520529678809L;
 	private Integer id;
 	private String name;
 	private String address;

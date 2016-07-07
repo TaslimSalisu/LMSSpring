@@ -1,9 +1,12 @@
 package com.gcit.lms.domain;
 
 import java.io.Serializable;
-import java.util.Date;
 
 public class BookCopies implements Serializable{
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -4297000848947468112L;
 	private Integer bookId;
 	private Integer branchId;
 	private Integer noOfCopies;
